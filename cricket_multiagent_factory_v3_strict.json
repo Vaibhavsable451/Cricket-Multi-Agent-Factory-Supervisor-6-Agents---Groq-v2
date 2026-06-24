@@ -1,0 +1,779 @@
+{
+  "name": "Cricket Multi-Agent Factory (Supervisor + 6 Agents - Groq) v2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cricket-agent",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "a1trigger-0000-0000-0000-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -280,
+        300
+      ],
+      "webhookId": "cricket-agent-webhook-001"
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.body.question }}",
+        "options": {
+          "systemMessage": "You are SUPERVISOR, the orchestrator of a Cricket Multi-Agent Factory. You NEVER answer cricket questions yourself directly using your own knowledge - you ALWAYS delegate to the correct specialist agent tool(s) based on the user's intent, then combine their responses into one clean, well-formatted final answer for the user.\n\nYour specialist agents (tools) are:\n1. SCORE-X -> Live scores, current match status, ball-by-ball, who is winning right now.\n2. STATX -> Player stats, batting/bowling records, career numbers, comparisons between players.\n3. CHRONOS -> Match schedules, fixtures, upcoming series, dates, venues, time of next match.\n4. PULSE -> Latest cricket news, transfers, injuries, controversies, announcements.\n5. TACTIX -> Match analysis, predictions, who might win, strategy/tactical breakdowns, pitch report based reasoning.\n6. ARCHIVE -> Historical records, past tournament results, ICC rankings, all-time records, World Cup history.\n\nRules:\n- You MUST invoke at least one specialist agent tool for every cricket question. Do not answer until at least one agent has responded.\n- Read the user query carefully and pick the MOST relevant agent(s). You may call more than one agent if the query needs it (e.g. 'live score and team's recent record' needs SCORE-X + ARCHIVE).\n- Always pass a clear, specific sub-question to each agent tool you call - do not just forward the raw user message blindly.\n- If an agent's response starts with an _ERROR marker (e.g. STATX_ERROR, SCORE_X_ERROR), tell the user plainly that live data could not be retrieved for that part of the question - do not fill the gap with your own memorized knowledge.\n- After getting agent responses, synthesize them into ONE final reply: clear headings if multiple agents were used, concise bullet points for scores/stats, and a friendly tone.\n- If information seems time-sensitive (live match), prioritize SCORE-X's data and mention it may change quickly.\n- If unsure which agent fits, default to calling SCORE-X and PULSE together for general cricket queries.\n- Never say \"as of my knowledge cutoff\" or similar. Never answer from your own training data. Your agents have live web search tools for that - always delegate first, and base your final answer only on what they returned."
+        }
+      },
+      "id": "supervisor-0000-0000-0000-000000000002",
+      "name": "Supervisor Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        60,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"answer\": $json.output, \"sessionId\": $('Webhook').item.json.body.sessionId } }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-0000-0000-0000-000000000099",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "id": "groq-supervisor-0000-000000000003",
+      "name": "Groq Model - Supervisor",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -20,
+        560
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "GROQ_CREDENTIAL_ID",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.body.sessionId }}",
+        "contextWindowLength": 10
+      },
+      "id": "memory-supervisor-0000-00000000004",
+      "name": "Memory - Supervisor",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        140,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "text": "={{ $fromAI('question', 'The specific live score / match status question to research', 'string') }}",
+        "options": {
+          "systemMessage": "You are SCORE-X, a cricket live-score specialist.\n\nYou MUST call your Web Search tool at least once before answering. Never answer from memory or training data alone.\n\nIf the tool returns no usable result, respond EXACTLY with: \"SCORE_X_ERROR: No live data found for this query.\" Do not invent or guess a score.\n\nNever mention your knowledge cutoff. Never say \"as of my last update\" or similar. Only report what the search tool actually returned.\n\nWhen the tool succeeds, give a crisp answer: score, overs, required run rate if relevant, and note that live scores change quickly.",
+          "returnIntermediateSteps": false
+        },
+        "toolDescription": "Call this for LIVE cricket scores, current match status, ball-by-ball updates, and who is winning right now. Pass a clear sub-question describing exactly what live score info is needed."
+      },
+      "id": "agent-scorex-0000-0000-000000000010",
+      "name": "SCORE_X_Agent_Tool",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        420,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "groq-scorex-0000-0000-0000-00000000011",
+      "name": "Groq Model - SCORE-X",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        380,
+        -60
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "GROQ_CREDENTIAL_ID",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "MANDATORY: Call this tool first, before answering. Searches the live web for current cricket scores, match status and live updates. Use specific search terms like team names, 'live score', tournament name.",
+        "method": "GET",
+        "url": "https://serpapi.com/search.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $fromAI('search_query', 'cricket live score search query', 'string') }}"
+            },
+            {
+              "name": "engine",
+              "value": "google"
+            },
+            {
+              "name": "api_key",
+              "value": "SERPAPI_KEY_HERE"
+            }
+          ]
+        }
+      },
+      "id": "tool-search-scorex-0000-0000-00000012",
+      "name": "Web_Search_SCORE_X",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        560,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "text": "={{ $fromAI('question', 'The specific player stats question to research', 'string') }}",
+        "options": {
+          "systemMessage": "You are STATX, a cricket player-statistics specialist.\n\nYou MUST call your Web Search tool at least once before answering. Never answer from memory or training data alone, even if you think you know the statistic.\n\nIf the tool returns no usable result, respond EXACTLY with: \"STATX_ERROR: No live data found for this query.\" Do not invent or guess a number.\n\nNever mention your knowledge cutoff. Never say \"as of my last update\", \"as of 2023\", or similar. Only report numbers that actually appear in the search tool's results."
+        },
+        "toolDescription": "Call this for cricket player statistics - batting/bowling averages, career records, milestones, and comparisons between players. Pass a clear sub-question about the specific player stats needed."
+      },
+      "id": "agent-statx-0000-0000-000000000020",
+      "name": "STATX_Agent_Tool",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        420,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "groq-statx-0000-0000-0000-00000000021",
+      "name": "Groq Model - STATX",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        380,
+        260
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "GROQ_CREDENTIAL_ID",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "MANDATORY: Call this tool first, before answering. Searches the web for cricket player statistics, career records, batting/bowling averages, milestones and comparisons.",
+        "method": "GET",
+        "url": "https://serpapi.com/search.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $fromAI('search_query', 'player stats search query', 'string') }}"
+            },
+            {
+              "name": "engine",
+              "value": "google"
+            },
+            {
+              "name": "api_key",
+              "value": "SERPAPI_KEY_HERE"
+            }
+          ]
+        }
+      },
+      "id": "tool-search-statx-0000-0000-00000022",
+      "name": "Web_Search_STATX",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        560,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "text": "={{ $fromAI('question', 'The specific schedule/fixture question to research', 'string') }}",
+        "options": {
+          "systemMessage": "You are CHRONOS, a cricket schedule and fixtures specialist.\n\nYou MUST call your Web Search tool at least once before answering. Never answer from memory or training data alone.\n\nIf the tool returns no usable result, respond EXACTLY with: \"CHRONOS_ERROR: No live data found for this query.\" Do not invent or guess a date or venue.\n\nNever mention your knowledge cutoff. Only report schedule details that actually appear in the search tool's results."
+        },
+        "toolDescription": "Call this for cricket match schedules, fixtures, upcoming series, dates and venues, and 'when is the next match' questions. Pass a clear sub-question about the specific schedule info needed."
+      },
+      "id": "agent-chronos-0000-0000-000000000030",
+      "name": "CHRONOS_Agent_Tool",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        420,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "groq-chronos-0000-0000-0000-00000000031",
+      "name": "Groq Model - CHRONOS",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        380,
+        580
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "GROQ_CREDENTIAL_ID",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "MANDATORY: Call this tool first, before answering. Searches the web for cricket match schedules, fixtures, series calendars, venues and dates.",
+        "method": "GET",
+        "url": "https://serpapi.com/search.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $fromAI('search_query', 'schedule fixture search query', 'string') }}"
+            },
+            {
+              "name": "engine",
+              "value": "google"
+            },
+            {
+              "name": "api_key",
+              "value": "SERPAPI_KEY_HERE"
+            }
+          ]
+        }
+      },
+      "id": "tool-search-chronos-0000-0000-00000032",
+      "name": "Web_Search_CHRONOS",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        560,
+        580
+      ]
+    },
+    {
+      "parameters": {
+        "text": "={{ $fromAI('question', 'The specific cricket news question to research', 'string') }}",
+        "options": {
+          "systemMessage": "You are PULSE, a cricket news specialist.\n\nYou MUST call your Web Search tool at least once before answering. Never answer from memory or training data alone.\n\nIf the tool returns no usable result, respond EXACTLY with: \"PULSE_ERROR: No live data found for this query.\" Do not invent or guess news.\n\nNever mention your knowledge cutoff. Only report news that actually appears in the search tool's results."
+        },
+        "toolDescription": "Call this for the latest cricket news - transfers, injuries, team announcements, controversies, press conferences. Pass a clear sub-question about the specific news needed."
+      },
+      "id": "agent-pulse-0000-0000-000000000040",
+      "name": "PULSE_Agent_Tool",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        420,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "id": "groq-pulse-0000-0000-0000-00000000041",
+      "name": "Groq Model - PULSE",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        380,
+        900
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "GROQ_CREDENTIAL_ID",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "MANDATORY: Call this tool first, before answering. Searches the web for the latest cricket news, transfers, injuries, announcements and controversies.",
+        "method": "GET",
+        "url": "https://serpapi.com/search.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $fromAI('search_query', 'cricket news search query', 'string') }}"
+            },
+            {
+              "name": "engine",
+              "value": "google"
+            },
+            {
+              "name": "api_key",
+              "value": "SERPAPI_KEY_HERE"
+            }
+          ]
+        }
+      },
+      "id": "tool-search-pulse-0000-0000-00000042",
+      "name": "Web_Search_PULSE",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        560,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "text": "={{ $fromAI('question', 'The specific match analysis/prediction question to research', 'string') }}",
+        "options": {
+          "systemMessage": "You are TACTIX, a cricket match-analysis specialist.\n\nYou MUST call your Web Search tool at least once before answering, to ground your analysis in current form, conditions, and news. Never answer from memory or training data alone.\n\nIf the tool returns no usable result, respond EXACTLY with: \"TACTIX_ERROR: No live data found for this query.\" Do not invent stats or pitch reports.\n\nNever mention your knowledge cutoff. Base your reasoning only on what the search tool actually returned."
+        },
+        "toolDescription": "Call this for cricket match analysis, predictions, tactical breakdowns, pitch-report based reasoning, and 'who might win' questions. Pass a clear sub-question about the specific analysis needed."
+      },
+      "id": "agent-tactix-0000-0000-000000000050",
+      "name": "TACTIX_Agent_Tool",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        420,
+        980
+      ]
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "id": "groq-tactix-0000-0000-0000-00000000051",
+      "name": "Groq Model - TACTIX",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        380,
+        1220
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "GROQ_CREDENTIAL_ID",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "MANDATORY: Call this tool first, before answering. Searches the web for cricket match analysis, expert predictions, pitch reports and tactical previews.",
+        "method": "GET",
+        "url": "https://serpapi.com/search.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $fromAI('search_query', 'match analysis prediction search query', 'string') }}"
+            },
+            {
+              "name": "engine",
+              "value": "google"
+            },
+            {
+              "name": "api_key",
+              "value": "SERPAPI_KEY_HERE"
+            }
+          ]
+        }
+      },
+      "id": "tool-search-tactix-0000-0000-00000052",
+      "name": "Web_Search_TACTIX",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        560,
+        1220
+      ]
+    },
+    {
+      "parameters": {
+        "text": "={{ $fromAI('question', 'The specific historical/records question to research', 'string') }}",
+        "options": {
+          "systemMessage": "You are ARCHIVE, a cricket history specialist.\n\nYou MUST call your Web Search tool at least once before answering, even for famous historical facts, since records and rankings get updated. Never answer from memory or training data alone.\n\nIf the tool returns no usable result, respond EXACTLY with: \"ARCHIVE_ERROR: No live data found for this query.\" Do not invent a result or date.\n\nNever mention your knowledge cutoff. Only report facts that actually appear in the search tool's results."
+        },
+        "toolDescription": "Call this for historical cricket records - past tournament results, ICC rankings, all-time records, and World Cup history. Pass a clear sub-question about the specific historical info needed."
+      },
+      "id": "agent-archive-0000-0000-000000000060",
+      "name": "ARCHIVE_Agent_Tool",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        420,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "groq-archive-0000-0000-0000-00000000061",
+      "name": "Groq Model - ARCHIVE",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        380,
+        1540
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "GROQ_CREDENTIAL_ID",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "MANDATORY: Call this tool first, before answering. Searches the web for historical cricket records, ICC rankings, past tournament winners and World Cup history.",
+        "method": "GET",
+        "url": "https://serpapi.com/search.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $fromAI('search_query', 'cricket history records search query', 'string') }}"
+            },
+            {
+              "name": "engine",
+              "value": "google"
+            },
+            {
+              "name": "api_key",
+              "value": "SERPAPI_KEY_HERE"
+            }
+          ]
+        }
+      },
+      "id": "tool-search-archive-0000-0000-00000062",
+      "name": "Web_Search_ARCHIVE",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        560,
+        1540
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Supervisor Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supervisor Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Model - Supervisor": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Supervisor Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory - Supervisor": {
+      "ai_memory": [
+        [
+          {
+            "node": "Supervisor Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SCORE_X_Agent_Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Supervisor Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "STATX_Agent_Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Supervisor Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CHRONOS_Agent_Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Supervisor Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PULSE_Agent_Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Supervisor Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TACTIX_Agent_Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Supervisor Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ARCHIVE_Agent_Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Supervisor Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Model - SCORE-X": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "SCORE_X_Agent_Tool",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Web_Search_SCORE_X": {
+      "ai_tool": [
+        [
+          {
+            "node": "SCORE_X_Agent_Tool",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Model - STATX": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "STATX_Agent_Tool",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Web_Search_STATX": {
+      "ai_tool": [
+        [
+          {
+            "node": "STATX_Agent_Tool",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Model - CHRONOS": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "CHRONOS_Agent_Tool",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Web_Search_CHRONOS": {
+      "ai_tool": [
+        [
+          {
+            "node": "CHRONOS_Agent_Tool",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Model - PULSE": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "PULSE_Agent_Tool",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Web_Search_PULSE": {
+      "ai_tool": [
+        [
+          {
+            "node": "PULSE_Agent_Tool",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Model - TACTIX": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "TACTIX_Agent_Tool",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Web_Search_TACTIX": {
+      "ai_tool": [
+        [
+          {
+            "node": "TACTIX_Agent_Tool",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Model - ARCHIVE": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "ARCHIVE_Agent_Tool",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Web_Search_ARCHIVE": {
+      "ai_tool": [
+        [
+          {
+            "node": "ARCHIVE_Agent_Tool",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
