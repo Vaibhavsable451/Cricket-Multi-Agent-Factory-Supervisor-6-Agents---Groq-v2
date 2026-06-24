@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cricket Multi-Agent Factory — AI Engineering by Vaibhav Sable</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Big+Shoulders+Display:wght@700;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --pitch-black:#0B1410;
+    --pitch-black-2:#0F1B15;
+    --cream:#F3EFE3;
+    --chalk:#FAFAF7;
+    --scarlet:#D6452C;
+    --gold:#C9A24B;
+    --green-line: rgba(201,162,75,0.18);
+    --mono: 'JetBrains Mono', monospace;
+    --display: 'Big Shoulders Display', sans-serif;
+    --body: 'Space Grotesk', sans-serif;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--pitch-black);
+    color:var(--cream);
+    font-family:var(--body);
+    overflow-x:hidden;
+  }
+
+  a{color:inherit;text-decoration:none;}
+  ::selection{background:var(--scarlet);color:var(--chalk);}
+
+  /* texture */
+  .grain{
+    position:fixed;inset:0;pointer-events:none;z-index:2;opacity:.035;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .floodlight{
+    position:fixed;top:-20%;left:50%;width:140vw;height:80vh;
+    background:radial-gradient(ellipse at center, rgba(201,162,75,0.10) 0%, rgba(201,162,75,0) 60%);
+    transform:translateX(-50%);pointer-events:none;z-index:1;
+  }
+
+  /* ===== NAV ===== */
+  nav{
+    position:fixed;top:0;left:0;right:0;z-index:50;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:22px 48px;
+    background:linear-gradient(to bottom, rgba(11,20,16,0.95), rgba(11,20,16,0));
+    backdrop-filter:blur(6px);
+  }
+  .brand{
+    font-family:var(--mono);font-size:13px;letter-spacing:.12em;
+    display:flex;align-items:center;gap:10px;color:var(--gold);
+  }
+  .brand .dot{width:7px;height:7px;border-radius:50%;background:var(--scarlet);box-shadow:0 0 8px var(--scarlet);
+    animation:pulse 1.6s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .navlinks{display:flex;gap:36px;font-size:13px;font-family:var(--mono);letter-spacing:.06em;}
+  .navlinks a{color:var(--cream);opacity:.65;transition:opacity .2s;position:relative;}
+  .navlinks a:hover{opacity:1;}
+  .navlinks a::after{content:'';position:absolute;bottom:-6px;left:0;width:0;height:1px;background:var(--gold);transition:width .25s;}
+  .navlinks a:hover::after{width:100%;}
+
+  /* ===== HERO ===== */
+  .hero{
+    position:relative;z-index:3;
+    min-height:100vh;
+    display:flex;flex-direction:column;justify-content:center;
+    padding:140px 48px 60px;
+    max-width:1400px;margin:0 auto;
+  }
+
+  .eyebrow{
+    font-family:var(--mono);font-size:12px;letter-spacing:.18em;color:var(--gold);
+    display:flex;align-items:center;gap:14px;margin-bottom:28px;opacity:0;
+    animation:fadeUp .7s ease forwards .1s;
+  }
+  .eyebrow .line{width:46px;height:1px;background:var(--gold);}
+
+  .hero h1{
+    font-family:var(--display);
+    font-weight:900;
+    font-size:clamp(56px, 9vw, 132px);
+    line-height:0.92;
+    letter-spacing:-0.01em;
+    text-transform:uppercase;
+    color:var(--chalk);
+    opacity:0;
+    animation:fadeUp .8s ease forwards .25s;
+  }
+  .hero h1 .accent{color:var(--scarlet);
+    -webkit-text-stroke:0;
+  }
+  .hero h1 .outline{
+    color:transparent;
+    -webkit-text-stroke:2px var(--gold);
+  }
+
+  .hero-sub{
+    margin-top:28px;max-width:620px;
+    font-size:18px;line-height:1.6;color:var(--cream);opacity:0;
+    animation:fadeUp .8s ease forwards .4s;
+  }
+  .hero-sub b{color:var(--gold);font-weight:600;}
+
+  .hero-cta{
+    margin-top:42px;display:flex;gap:18px;align-items:center;flex-wrap:wrap;
+    opacity:0;animation:fadeUp .8s ease forwards .55s;
+  }
+  .btn{
+    font-family:var(--mono);font-size:13px;letter-spacing:.08em;
+    padding:16px 28px;border-radius:2px;cursor:pointer;
+    transition:transform .2s, box-shadow .2s;
+    display:inline-flex;align-items:center;gap:10px;
+  }
+  .btn-primary{
+    background:var(--scarlet);color:var(--chalk);border:1px solid var(--scarlet);
+  }
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(214,69,44,.35);}
+  .btn-ghost{
+    background:transparent;color:var(--cream);border:1px solid var(--green-line);
+  }
+  .btn-ghost:hover{border-color:var(--gold);color:var(--gold);transform:translateY(-2px);}
+
+  @keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+
+  /* scoreboard strip */
+  .scorestrip{
+    margin-top:64px;
+    border-top:1px solid var(--green-line);
+    border-bottom:1px solid var(--green-line);
+    padding:18px 0;
+    overflow:hidden;
+    opacity:0;animation:fadeUp .8s ease forwards .7s;
+  }
+  .ticker{
+    display:flex;gap:48px;white-space:nowrap;
+    animation:scroll 26s linear infinite;
+    font-family:var(--mono);font-size:13px;letter-spacing:.06em;color:var(--cream);opacity:.75;
+  }
+  .ticker span b{color:var(--gold);}
+  .ticker span i{color:var(--scarlet);font-style:normal;}
+  @keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+  /* ===== SECTION SHARED ===== */
+  section{position:relative;z-index:3;padding:110px 48px;max-width:1400px;margin:0 auto;}
+  .section-head{display:flex;align-items:baseline;gap:18px;margin-bottom:56px;}
+  .section-num{font-family:var(--mono);font-size:13px;color:var(--scarlet);letter-spacing:.1em;}
+  .section-title{
+    font-family:var(--display);font-weight:900;font-size:clamp(32px,4.2vw,56px);
+    text-transform:uppercase;color:var(--chalk);letter-spacing:-0.01em;
+  }
+  .section-rule{flex:1;height:1px;background:var(--green-line);}
+
+  /* ===== SQUAD / AGENTS ===== */
+  .squad-grid{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:1px;
+    background:var(--green-line);border:1px solid var(--green-line);
+  }
+  .agent-card{
+    background:var(--pitch-black-2);padding:34px 30px;position:relative;
+    transition:background .25s;
+  }
+  .agent-card:hover{background:#13241c;}
+  .agent-num{
+    font-family:var(--mono);font-size:12px;color:var(--gold);opacity:.7;letter-spacing:.1em;
+  }
+  .agent-name{
+    font-family:var(--display);font-weight:900;font-size:30px;color:var(--chalk);
+    margin:10px 0 14px;text-transform:uppercase;
+  }
+  .agent-role{font-size:14px;line-height:1.55;color:var(--cream);opacity:.7;}
+  .agent-tag{
+    margin-top:18px;display:inline-block;font-family:var(--mono);font-size:11px;
+    letter-spacing:.08em;color:var(--scarlet);border:1px solid rgba(214,69,44,.35);
+    padding:4px 10px;border-radius:2px;
+  }
+
+  /* ===== ARCHITECTURE ===== */
+  .arch-wrap{
+    border:1px solid var(--green-line);background:var(--pitch-black-2);padding:48px;
+    position:relative;overflow:hidden;
+  }
+  .arch-flow{
+    font-family:var(--mono);font-size:14px;line-height:2.1;color:var(--cream);opacity:.85;
+    white-space:pre;overflow-x:auto;
+  }
+  .arch-flow .node{color:var(--gold);}
+  .arch-flow .arrow{color:var(--scarlet);}
+  .arch-flow .leaf{color:var(--chalk);opacity:.6;}
+
+  .stack-row{
+    margin-top:36px;display:flex;gap:10px;flex-wrap:wrap;
+  }
+  .pill{
+    font-family:var(--mono);font-size:12px;letter-spacing:.04em;
+    border:1px solid var(--green-line);padding:8px 14px;border-radius:2px;color:var(--cream);opacity:.85;
+  }
+
+  /* ===== COMMENTARY BOX / CHAT ===== */
+  .comm-wrap{
+    border:1px solid var(--green-line);background:var(--pitch-black-2);
+    display:grid;grid-template-columns:280px 1fr;min-height:560px;
+  }
+  .comm-side{
+    border-right:1px solid var(--green-line);padding:28px;
+  }
+  .comm-side h4{
+    font-family:var(--mono);font-size:12px;letter-spacing:.1em;color:var(--gold);margin-bottom:18px;
+  }
+  .sample-q{
+    display:block;width:100%;text-align:left;background:transparent;border:1px solid var(--green-line);
+    color:var(--cream);font-family:var(--body);font-size:13px;padding:12px 14px;margin-bottom:10px;
+    border-radius:2px;cursor:pointer;transition:.2s;line-height:1.4;
+  }
+  .sample-q:hover{border-color:var(--gold);color:var(--gold);}
+
+  .comm-main{display:flex;flex-direction:column;}
+  .comm-head{
+    padding:18px 26px;border-bottom:1px solid var(--green-line);
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .comm-head .live{
+    display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--scarlet);letter-spacing:.08em;
+  }
+  .comm-head .live .dot{width:6px;height:6px;border-radius:50%;background:var(--scarlet);animation:pulse 1.6s infinite;}
+  .comm-head .status{font-family:var(--mono);font-size:11px;color:var(--cream);opacity:.5;}
+
+  .comm-log{
+    flex:1;padding:26px;overflow-y:auto;display:flex;flex-direction:column;gap:18px;
+    font-size:14.5px;line-height:1.6;max-height:420px;
+  }
+  .msg{max-width:85%;}
+  .msg.user{align-self:flex-end;}
+  .msg .bubble{padding:14px 16px;border-radius:3px;}
+  .msg.user .bubble{background:var(--scarlet);color:var(--chalk);}
+  .msg.bot .bubble{background:rgba(243,239,227,0.06);border:1px solid var(--green-line);color:var(--cream);white-space:pre-wrap;}
+  .msg .meta{font-family:var(--mono);font-size:10.5px;color:var(--gold);opacity:.7;margin-bottom:6px;letter-spacing:.05em;}
+
+  .comm-input{
+    border-top:1px solid var(--green-line);padding:18px 22px;display:flex;gap:12px;
+  }
+  .comm-input input{
+    flex:1;background:transparent;border:1px solid var(--green-line);color:var(--chalk);
+    padding:14px 16px;font-family:var(--body);font-size:14px;border-radius:2px;outline:none;
+  }
+  .comm-input input:focus{border-color:var(--gold);}
+  .comm-input button{
+    background:var(--scarlet);color:var(--chalk);border:none;padding:0 26px;border-radius:2px;
+    font-family:var(--mono);font-size:13px;letter-spacing:.06em;cursor:pointer;transition:.2s;
+  }
+  .comm-input button:hover{background:#c13a23;}
+  .comm-input button:disabled{opacity:.5;cursor:not-allowed;}
+
+  .typing{display:flex;gap:4px;padding:6px 0;}
+  .typing span{width:6px;height:6px;border-radius:50%;background:var(--gold);opacity:.5;animation:bounce 1.2s infinite;}
+  .typing span:nth-child(2){animation-delay:.2s;}
+  .typing span:nth-child(3){animation-delay:.4s;}
+  @keyframes bounce{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-4px);opacity:1}}
+
+  .conn-banner{
+    margin-top:14px;font-family:var(--mono);font-size:11.5px;color:var(--cream);opacity:.55;
+    display:flex;align-items:center;gap:8px;
+  }
+  .conn-banner code{color:var(--gold);}
+
+  /* ===== ABOUT / CTA ===== */
+  .about-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:64px;align-items:start;}
+  .about-text{font-size:17px;line-height:1.75;color:var(--cream);opacity:.85;}
+  .about-text p{margin-bottom:18px;}
+  .about-stats{display:flex;flex-direction:column;gap:24px;}
+  .stat{border-left:2px solid var(--scarlet);padding-left:18px;}
+  .stat .num{font-family:var(--display);font-weight:900;font-size:42px;color:var(--chalk);}
+  .stat .label{font-family:var(--mono);font-size:12px;color:var(--gold);letter-spacing:.06em;margin-top:4px;}
+
+  footer{
+    position:relative;z-index:3;border-top:1px solid var(--green-line);
+    padding:40px 48px;display:flex;justify-content:space-between;align-items:center;
+    font-family:var(--mono);font-size:12px;color:var(--cream);opacity:.55;flex-wrap:wrap;gap:14px;
+  }
+  footer a{color:var(--gold);opacity:1;}
+  footer a:hover{text-decoration:underline;}
+
+  @media (max-width:900px){
+    .squad-grid{grid-template-columns:1fr;}
+    .comm-wrap{grid-template-columns:1fr;}
+    .comm-side{border-right:none;border-bottom:1px solid var(--green-line);}
+    .about-grid{grid-template-columns:1fr;}
+    nav{padding:18px 22px;}
+    .navlinks{display:none;}
+    section{padding:80px 22px;}
+    .hero{padding:120px 22px 50px;}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important;transition:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<div class="grain"></div>
+<div class="floodlight"></div>
+
+<nav>
+  <div class="brand"><span class="dot"></span>CRICKET // MULTI-AGENT FACTORY</div>
+  <div class="navlinks">
+    <a href="#squad">Squad</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#commentary">Live Demo</a>
+    <a href="#about">Engineer</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="eyebrow"><span class="line"></span>AGENTIC AI · GROQ LLAMA 3.3 70B · N8N ORCHESTRATION</div>
+  <h1>SIX AGENTS.<br>ONE <span class="accent">SUPERVISOR</span>.<br class="hide-mobile"><span class="outline">ZERO</span> GUESSWORK.</h1>
+  <p class="hero-sub">
+    A production multi-agent system that routes every cricket question — live scores, stats, fixtures, news, predictions, history — to a dedicated specialist agent, then synthesizes one clean answer. Built end-to-end by <b>Vaibhav Sable</b>, AI/GenAI Engineer.
+  </p>
+  <div class="hero-cta">
+    <a href="#commentary" class="btn btn-primary">▶ Talk to the Supervisor</a>
+    <a href="#architecture" class="btn btn-ghost">View Architecture</a>
+  </div>
+
+  <div class="scorestrip">
+    <div class="ticker" id="ticker"></div>
+  </div>
+</section>
+
+<section id="squad">
+  <div class="section-head">
+    <span class="section-num">01</span>
+    <h2 class="section-title">The Squad</h2>
+    <div class="section-rule"></div>
+  </div>
+  <div class="squad-grid">
+    <div class="agent-card">
+      <div class="agent-num">№ 01</div>
+      <div class="agent-name">SCORE-X</div>
+      <div class="agent-role">Live scores, ball-by-ball status, current run rate, who's winning right now.</div>
+      <span class="agent-tag">live data</span>
+    </div>
+    <div class="agent-card">
+      <div class="agent-num">№ 02</div>
+      <div class="agent-name">STATX</div>
+      <div class="agent-role">Batting & bowling averages, career records, head-to-head player comparisons.</div>
+      <span class="agent-tag">statistics</span>
+    </div>
+    <div class="agent-card">
+      <div class="agent-num">№ 03</div>
+      <div class="agent-name">CHRONOS</div>
+      <div class="agent-role">Match schedules, fixtures, upcoming series, venues, "when's the next match."</div>
+      <span class="agent-tag">schedule</span>
+    </div>
+    <div class="agent-card">
+      <div class="agent-num">№ 04</div>
+      <div class="agent-name">PULSE</div>
+      <div class="agent-role">Breaking news — transfers, injuries, squad announcements, controversies.</div>
+      <span class="agent-tag">news</span>
+    </div>
+    <div class="agent-card">
+      <div class="agent-num">№ 05</div>
+      <div class="agent-name">TACTIX</div>
+      <div class="agent-role">Match previews, pitch-report reasoning, tactical breakdowns, win predictions.</div>
+      <span class="agent-tag">analysis</span>
+    </div>
+    <div class="agent-card">
+      <div class="agent-num">№ 06</div>
+      <div class="agent-name">ARCHIVE</div>
+      <div class="agent-role">ICC rankings, World Cup history, all-time records, past tournament results.</div>
+      <span class="agent-tag">history</span>
+    </div>
+  </div>
+</section>
+
+<section id="architecture">
+  <div class="section-head">
+    <span class="section-num">02</span>
+    <h2 class="section-title">How It's Wired</h2>
+    <div class="section-rule"></div>
+  </div>
+  <div class="arch-wrap">
+    <div class="arch-flow"><span class="leaf">User question</span>
+   <span class="arrow">│</span>
+   <span class="arrow">▼</span>
+<span class="node">Webhook (n8n)</span>  <span class="leaf">— receives { question, sessionId }</span>
+   <span class="arrow">│</span>
+   <span class="arrow">▼</span>
+<span class="node">Supervisor Agent</span>  <span class="leaf">— Groq Llama-3.3-70B + buffer memory</span>
+   <span class="arrow">├──▶</span> <span class="node">SCORE-X</span>  <span class="leaf">→ web search → live score</span>
+   <span class="arrow">├──▶</span> <span class="node">STATX</span>   <span class="leaf">→ web search → player records</span>
+   <span class="arrow">├──▶</span> <span class="node">CHRONOS</span> <span class="leaf">→ web search → fixtures</span>
+   <span class="arrow">├──▶</span> <span class="node">PULSE</span>   <span class="leaf">→ web search → news</span>
+   <span class="arrow">├──▶</span> <span class="node">TACTIX</span>  <span class="leaf">→ web search → predictions</span>
+   <span class="arrow">└──▶</span> <span class="node">ARCHIVE</span> <span class="leaf">→ web search → historical data</span>
+   <span class="arrow">│</span>
+   <span class="arrow">▼</span>
+<span class="node">Respond to Webhook</span>  <span class="leaf">— { answer, sessionId } → back to user</span></div>
+    <div class="stack-row">
+      <span class="pill">n8n</span>
+      <span class="pill">Groq · Llama 3.3 70B</span>
+      <span class="pill">LangChain Agents</span>
+      <span class="pill">SerpAPI Web Search</span>
+      <span class="pill">Buffer Window Memory</span>
+      <span class="pill">Webhook + REST</span>
+      <span class="pill">Supervisor → Tool-Agent pattern</span>
+    </div>
+  </div>
+</section>
+
+<section id="commentary">
+  <div class="section-head">
+    <span class="section-num">03</span>
+    <h2 class="section-title">Live Commentary Box</h2>
+    <div class="section-rule"></div>
+  </div>
+
+  <div class="comm-wrap">
+    <div class="comm-side">
+      <h4>TRY A QUESTION</h4>
+      <button class="sample-q" data-q="What is the live score of India vs Australia today?">What is the live score of India vs Australia today?</button>
+      <button class="sample-q" data-q="What is Virat Kohli's batting average in ODIs?">What is Virat Kohli's batting average in ODIs?</button>
+      <button class="sample-q" data-q="When is the next India vs England match?">When is the next India vs England match?</button>
+      <button class="sample-q" data-q="Who won the last Cricket World Cup?">Who won the last Cricket World Cup?</button>
+      <button class="sample-q" data-q="Any latest team news for India?">Any latest team news for India?</button>
+      <div class="conn-banner">Backend: <code>localhost:5678/webhook/cricket-agent</code></div>
+    </div>
+    <div class="comm-main">
+      <div class="comm-head">
+        <div class="live"><span class="dot"></span>LIVE · SUPERVISOR ONLINE</div>
+        <div class="status" id="conn-status">checking connection…</div>
+      </div>
+      <div class="comm-log" id="log">
+        <div class="msg bot">
+          <div class="meta">SUPERVISOR</div>
+          <div class="bubble">Welcome to the commentary box. Ask about live scores, player stats, fixtures, news, match predictions, or cricket history — I'll route it to the right specialist agent.</div>
+        </div>
+      </div>
+      <div class="comm-input">
+        <input type="text" id="userInput" placeholder="Ask about any live match, player or fixture…" />
+        <button id="sendBtn">SEND</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="about">
+  <div class="section-head">
+    <span class="section-num">04</span>
+    <h2 class="section-title">The Engineer</h2>
+    <div class="section-rule"></div>
+  </div>
+  <div class="about-grid">
+    <div class="about-text">
+      <p>I'm <b style="color:var(--gold)">Vaibhav Sable</b>, an AI/GenAI Engineer based in Pune, building production-grade agentic systems — multi-agent orchestration, RAG pipelines, and LLM-powered platforms shipped end-to-end, not just notebooks.</p>
+      <p>This Cricket Multi-Agent Factory demonstrates the supervisor → specialist-tool pattern: one orchestrator agent that never guesses, and six domain experts that each own a narrow, well-defined slice of the problem — backed by live web search instead of stale model knowledge.</p>
+      <p>The same architecture pattern powers my Enterprise AI Customer Support Platform (Pinecone · LangGraph · FastAPI · Docker · Kubernetes) and other deployed agentic systems.</p>
+    </div>
+    <div class="about-stats">
+      <div class="stat"><div class="num">6</div><div class="label">SPECIALIST AGENTS</div></div>
+      <div class="stat"><div class="num">1</div><div class="label">SUPERVISOR ORCHESTRATOR</div></div>
+      <div class="stat"><div class="num">100%</div><div class="label">LIVE WEB-GROUNDED ANSWERS</div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div>© 2026 Vaibhav Sable — Cricket Multi-Agent Factory</div>
+  <div>Built with n8n + Groq · <a href="https://www.linkedin.com/in/vaibhavsable-ai-engineer" target="_blank">LinkedIn</a></div>
+</footer>
+
+<script>
+  // Ticker content
+  const tickerItems = [
+    "<span><b>SCORE-X</b> live · <i>tracking</i></span>",
+    "<span><b>STATX</b> records · <i>synced</i></span>",
+    "<span><b>CHRONOS</b> fixtures · <i>loaded</i></span>",
+    "<span><b>PULSE</b> news · <i>streaming</i></span>",
+    "<span><b>TACTIX</b> predictions · <i>ready</i></span>",
+    "<span><b>ARCHIVE</b> history · <i>indexed</i></span>",
+  ];
+  const ticker = document.getElementById('ticker');
+  ticker.innerHTML = (tickerItems.join('') ) + (tickerItems.join(''));
+
+  // ====== CONFIG: change this if your n8n URL differs ======
+  const WEBHOOK_URL = "http://localhost:5678/webhook/cricket-agent";
+  // ==========================================================
+
+  const sessionId = "web-" + Math.random().toString(36).slice(2, 10);
+  const log = document.getElementById('log');
+  const input = document.getElementById('userInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const statusEl = document.getElementById('conn-status');
+
+  function addMsg(role, text){
+    const wrap = document.createElement('div');
+    wrap.className = 'msg ' + (role === 'user' ? 'user' : 'bot');
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = role === 'user' ? 'YOU' : 'SUPERVISOR';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = text;
+    wrap.appendChild(meta);
+    wrap.appendChild(bubble);
+    log.appendChild(wrap);
+    log.scrollTop = log.scrollHeight;
+    return wrap;
+  }
+
+  function addTyping(){
+    const wrap = document.createElement('div');
+    wrap.className = 'msg bot';
+    wrap.id = 'typing-indicator';
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = 'SUPERVISOR';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    const typing = document.createElement('div');
+    typing.className = 'typing';
+    typing.innerHTML = '<span></span><span></span><span></span>';
+    bubble.appendChild(typing);
+    wrap.appendChild(meta);
+    wrap.appendChild(bubble);
+    log.appendChild(wrap);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function removeTyping(){
+    const t = document.getElementById('typing-indicator');
+    if(t) t.remove();
+  }
+
+  async function sendQuestion(question){
+    if(!question || !question.trim()) return;
+    addMsg('user', question);
+    input.value = '';
+    sendBtn.disabled = true;
+    addTyping();
+
+    try{
+      const res = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ question, sessionId })
+      });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      removeTyping();
+      addMsg('bot', data.answer || "Hmm, no answer came back — check the n8n workflow is active.");
+    }catch(err){
+      removeTyping();
+      addMsg('bot', "⚠ Couldn't reach the agent backend. Make sure the n8n workflow is active and " + WEBHOOK_URL + " is reachable from this browser.\n\n(" + err.message + ")");
+    }finally{
+      sendBtn.disabled = false;
+    }
+  }
+
+  sendBtn.addEventListener('click', () => sendQuestion(input.value));
+  input.addEventListener('keydown', (e) => { if(e.key === 'Enter') sendQuestion(input.value); });
+  document.querySelectorAll('.sample-q').forEach(btn => {
+    btn.addEventListener('click', () => sendQuestion(btn.dataset.q));
+  });
+
+  // quick connectivity check (best-effort, won't block UI)
+  fetch(WEBHOOK_URL, { method: 'OPTIONS' }).then(()=>{
+    statusEl.textContent = 'backend reachable';
+  }).catch(()=>{
+    statusEl.textContent = 'backend offline — start n8n & activate workflow';
+  });
+</script>
+
+</body>
+</html>
